@@ -29,8 +29,7 @@ RUN apt-get update && apt-get -y install  \
     libtool         \
     wget            \
     golang          \
-    python          \
-    rsync
+    python
 
 # Install Bazelisk
 RUN wget -O /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/download/v0.0.8/bazelisk-linux-amd64; \

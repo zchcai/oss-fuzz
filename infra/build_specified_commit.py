@@ -22,8 +22,6 @@ import os
 import collections
 import logging
 import re
-import shutil
-import time
 
 import helper
 import repo_manager
@@ -33,8 +31,6 @@ BuildData = collections.namedtuple(
     'BuildData', ['project_name', 'engine', 'sanitizer', 'architecture'])
 
 _GIT_DIR_MARKER = 'gitdir: '
-_IMAGE_BUILD_TRIES = 3
-_IMAGE_BUILD_RETRY_SLEEP = 30.0
 
 
 class BaseBuilderRepo:
@@ -58,34 +54,6 @@ class BaseBuilderRepo:
     raise ValueError('Failed to find suitable base-builder.')
 
 
-def _replace_gitdir(src_dir, file_path):
-  """Replace gitdir with a relative path."""
-  with open(file_path) as handle:
-    lines = handle.readlines()
-
-  new_lines = []
-  for line in lines:
-    if line.startswith(_GIT_DIR_MARKER):
-      absolute_path = line[len(_GIT_DIR_MARKER):].strip()
-      if not os.path.isabs(absolute_path):
-        # Already relative.
-        return
-
-      current_dir = os.path.dirname(file_path)
-      # Rebase to /src rather than the host src dir.
-      base_dir = current_dir.replace(src_dir, '/src')
-      relative_path = os.path.relpath(absolute_path, base_dir)
-      logging.info('Replacing absolute submodule gitdir from %s to %s',
-                   absolute_path, relative_path)
-
-      line = _GIT_DIR_MARKER + relative_path
-
-    new_lines.append(line)
-
-  with open(file_path, 'w') as handle:
-    handle.write(''.join(new_lines))
-
-
 def _make_gitdirs_relative(src_dir):
   """Make gitdirs relative."""
   for root_dir, _, files in os.walk(src_dir):
@@ -94,7 +62,26 @@ def _make_gitdirs_relative(src_dir):
         continue
 
       file_path = os.path.join(root_dir, filename)
-      _replace_gitdir(src_dir, file_path)
+      with open(file_path) as handle:
+        lines = handle.readlines()
+
+      new_lines = []
+      for line in lines:
+        if line.startswith(_GIT_DIR_MARKER):
+          absolute_path = line[len(_GIT_DIR_MARKER):].strip()
+          current_dir = os.path.dirname(file_path)
+          # Rebase to /src rather than the host src dir.
+          base_dir = current_dir.replace(src_dir, '/src')
+          relative_path = os.path.relpath(absolute_path, base_dir)
+          logging.info('Replacing absolute submodule gitdir from %s to %s',
+                       absolute_path, relative_path)
+
+          line = _GIT_DIR_MARKER + relative_path
+
+        new_lines.append(line)
+
+      with open(file_path, 'w') as handle:
+        handle.write(''.join(new_lines))
 
 
 def _replace_base_builder_digest(dockerfile_path, digest):
@@ -117,17 +104,13 @@ def copy_src_from_docker(project_name, host_dir):
   """Copy /src from docker to the host."""
   # Copy /src to host.
   image_name = 'gcr.io/oss-fuzz/' + project_name
-  src_dir = os.path.join(host_dir, 'src')
-  if os.path.exists(src_dir):
-    shutil.rmtree(src_dir, ignore_errors=True)
-
   docker_args = [
       '-v',
       host_dir + ':/out',
       image_name,
-      'cp',
-      '-r',
-      '-p',
+      'rsync',
+      '-aW',
+      '--delete',
       '/src',
       '/out',
   ]
@@ -135,21 +118,10 @@ def copy_src_from_docker(project_name, host_dir):
 
   # Submodules can have gitdir entries which point to absolute paths. Make them
   # relative, as otherwise we can't do operations on the checkout on the host.
+  src_dir = os.path.join(host_dir, 'src')
   _make_gitdirs_relative(src_dir)
+
   return src_dir
-
-
-def _build_image_with_retries(project_name):
-  """Build image with retries."""
-
-  for _ in range(_IMAGE_BUILD_TRIES):
-    result = helper.build_image_impl(project_name)
-    if result:
-      return result
-
-    time.sleep(_IMAGE_BUILD_RETRY_SLEEP)
-
-  return result
 
 
 def build_fuzzers_from_commit(commit,
@@ -220,7 +192,7 @@ def build_fuzzers_from_commit(commit,
                                    base_builder_digest)
 
     # Rebuild image and re-copy src dir since things in /src could have changed.
-    if not _build_image_with_retries(build_data.project_name):
+    if not helper.build_image_impl(build_data.project_name):
       raise RuntimeError('Failed to rebuild image.')
 
     cleanup()
@@ -254,7 +226,7 @@ def detect_main_repo(project_name, repo_name=None, commit=None):
 
   # Change to oss-fuzz main directory so helper.py runs correctly.
   utils.chdir_to_root()
-  if not _build_image_with_retries(project_name):
+  if not helper.build_image_impl(project_name):
     logging.error('Error: building %s image failed.', project_name)
     return None, None
   docker_image_name = 'gcr.io/oss-fuzz/' + project_name

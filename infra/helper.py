@@ -56,8 +56,6 @@ CORPUS_BACKUP_URL_FORMAT = (
     'gs://{project_name}-backup.clusterfuzz-external.appspot.com/corpus/'
     'libFuzzer/{fuzz_target}/')
 
-PROJECT_LANGUAGE_REGEX = re.compile(r'\s*language\s*:\s*([^\s]+)')
-
 
 def main():  # pylint: disable=too-many-branches,too-many-return-statements,too-many-statements
   """Get subcommand from program arguments and do it."""
@@ -286,20 +284,6 @@ def _get_work_dir(project_name=''):
   return os.path.join(BUILD_DIR, 'work', project_name)
 
 
-def _get_project_language(project_name):
-  """Returns project language."""
-  project_yaml_path = os.path.join(OSS_FUZZ_DIR, 'projects', project_name,
-                                   'project.yaml')
-  with open(project_yaml_path) as file_handle:
-    content = file_handle.read()
-    for line in content.splitlines():
-      match = PROJECT_LANGUAGE_REGEX.match(line)
-      if match:
-        return match.group(1)
-
-  return None
-
-
 def _add_architecture_args(parser, choices=('x86_64', 'i386')):
   """Add common architecture args."""
   parser.add_argument('--architecture', default='x86_64', choices=choices)
@@ -465,7 +449,7 @@ def build_image(args):
   return 1
 
 
-def build_fuzzers_impl(  # pylint: disable=too-many-arguments,too-many-locals,too-many-branches
+def build_fuzzers_impl(  # pylint: disable=too-many-arguments
     project_name,
     clean,
     engine,
@@ -481,9 +465,6 @@ def build_fuzzers_impl(  # pylint: disable=too-many-arguments,too-many-locals,to
 
   project_out_dir = _get_output_dir(project_name)
   project_work_dir = _get_work_dir(project_name)
-  project_language = _get_project_language(project_name)
-  if not project_language:
-    print('WARNING: language not specified in project.yaml. Build may fail.')
 
   if clean:
     print('Cleaning existing build artifacts.')
@@ -508,10 +489,6 @@ def build_fuzzers_impl(  # pylint: disable=too-many-arguments,too-many-locals,to
       'SANITIZER=' + sanitizer,
       'ARCHITECTURE=' + architecture,
   ]
-
-  if project_language:
-    env.append('FUZZING_LANGUAGE=' + project_language)
-
   if env_to_add:
     env += env_to_add
 

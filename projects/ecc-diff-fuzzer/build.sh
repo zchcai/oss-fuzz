@@ -28,7 +28,7 @@ make -j$(nproc)
 make install
 cd ..
 autoreconf
-./configure --disable-shared --disable-openssl
+./configure --disable-shared
 make -j$(nproc)
 make install
 )

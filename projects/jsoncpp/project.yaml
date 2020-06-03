@@ -1,6 +1,6 @@
 homepage: "https://github.com/open-source-parsers/jsoncpp/"
 language: c++
-primary_contact: "chenguopingdota@163.com"
+primary_contact: "cdunn2001@gmail.com"
 auto_ccs:
  - "jophba@chromium.org"
 sanitizers:

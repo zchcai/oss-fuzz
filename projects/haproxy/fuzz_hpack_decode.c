@@ -15,9 +15,6 @@
  * #
  * ################################################################################
  * */
-
-#define HPACK_STANDALONE
-
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
@@ -26,7 +23,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
 #include <common/chunk.h>
 #include <common/hpack-dec.h>
 #include <common/mini-clist.h>
@@ -40,7 +36,9 @@ uint8_t buf[MAX_RQ_SIZE];
 char trash_buf[MAX_RQ_SIZE];
 char tmp_buf[MAX_RQ_SIZE];
 
+struct buffer trash = { .area = trash_buf, .data = 0, .size = sizeof(trash_buf) };
 struct buffer tmp   = { .area = tmp_buf,   .data = 0, .size = sizeof(tmp_buf)   };
+
 
 /* Empty function we dont need - we just need a callback */
 void debug_hexdump(FILE *out, const char *pfx, const char *buf,
@@ -56,27 +54,21 @@ void debug_hexdump(FILE *out, const char *pfx, const char *buf,
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size){
         char *new_str = (char *)malloc(size+1);
         struct hpack_dht *dht;
-        struct pool_head pool;
         int dht_size = 4096;
         if (new_str == NULL){
                 return 0;
         }
         memcpy(new_str, data, size);
         new_str[size] = '\0';
-        struct http_hdr list[MAX_HDR_NUM];
+        struct http_hdr list[MAX_HDR_NUM];      
 
-        pool.size = dht_size;
-        pool_head_hpack_tbl = &pool;
-        dht = hpack_dht_alloc();
-
+        dht = hpack_dht_alloc(dht_size);
+        hpack_decode_frame(dht, new_str, size, list,sizeof(list)/sizeof(list[0]), &tmp);
         if (dht != NULL)
         {
-            hpack_decode_frame(dht, new_str, size, list,sizeof(list)/sizeof(list[0]), &tmp);
-            if (dht != NULL)
-            {
-                free(dht);
-            }
+            free(dht);
         }
+
         free(new_str);
         return 0;
 }

@@ -18,7 +18,6 @@
 
 #include <cstdint>
 
-#include <poppler-destination.h>
 #include <poppler-global.h>
 #include <poppler-document.h>
 #include <poppler-page.h>
@@ -34,10 +33,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     delete doc;
     return 0;
   }
-  doc->metadata();
-  doc->create_destination_map();
-  doc->embedded_files();
-  doc->fonts();
 
   poppler::page_renderer r;
   for (int i = 0; i < doc->pages(); i++) {
@@ -46,7 +41,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
       continue;
     }
     r.render_page(p);
-    p->text_list(poppler::page::text_list_include_font);
+    p->text_list();
     delete p;
   }
 

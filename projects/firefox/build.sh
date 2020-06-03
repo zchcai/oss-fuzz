@@ -41,13 +41,13 @@ FUZZ_TARGETS=(
 export MOZ_OBJDIR=$WORK/obj-fuzz
 export MOZCONFIG=$SRC/mozconfig.$SANITIZER
 
-# Install dependencies.
+# Install dependencies. Note that bootstrap installs cargo, which must be added
+# to PATH via source. In a successive run (for a different sanitizer), the
+# cargo installation carries over, but bootstrap fails if cargo is not in PATH.
 export SHELL=/bin/bash
+[[ -f "$HOME/.cargo/env" ]] && source $HOME/.cargo/env
 ./mach bootstrap --no-interactive --application-choice browser
-
-# Skip patches for now
-rm tools/fuzzing/libfuzzer/patches/*.patch
-touch tools/fuzzing/libfuzzer/patches/dummy.patch
+source $HOME/.cargo/env
 
 # Update internal libFuzzer.
 (cd tools/fuzzing/libfuzzer && ./clone_libfuzzer.sh HEAD)
