@@ -7,3 +7,4 @@ auto_ccs:
   - "willy@1wt.eu"
 sanitizers:
   - address
+  - memory
