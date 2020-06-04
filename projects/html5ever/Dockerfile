@@ -1,4 +1,3 @@
-#!/bin/bash -eu
 # Copyright 2020 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,20 +13,9 @@
 # limitations under the License.
 #
 ################################################################################
+FROM gcr.io/oss-fuzz-base/base-builder
+MAINTAINER david@adalogics.com
 
-# build project
-cmake . -DBUILD_SHARED_LIBS=OFF  -DENABLE_OPENMP=OFF
-make -j$(nproc)
-
-# install
-make install
-ldconfig
-
-# build fuzzers
-MU_CXXFLAGS=$(pkg-config muparser --cflags)
-MU_LIBS=$(pkg-config muparser --libs)
-
-$CXX -std=c++11 $CXXFLAGS -I. \
-     $MU_CXXFLAGS $MU_LIBS \
-     $SRC/set_eval_fuzzer.cc -o $OUT/set_eval_fuzzer \
-     $LIB_FUZZING_ENGINE libmuparser.a
+RUN git clone --depth 1 https://github.com/servo/html5ever
+WORKDIR $SRC
+COPY build.sh $SRC/
